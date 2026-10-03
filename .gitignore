@@ -11,8 +11,8 @@
 .venv/
 __pycache__/
 *.pyc
-frontend/node_modules/
-frontend/dist/
+node_modules/
+dist/
 data/*
 !data/.gitkeep
 # Generated transfer packages, private backups, and test installations.
@@ -35,3 +35,19 @@ Thumbs.db
 *.pem
 *.p12
 *.pfx
+# Release archives and database exports can contain private installation data.
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+.ruff_cache/
+.mypy_cache/

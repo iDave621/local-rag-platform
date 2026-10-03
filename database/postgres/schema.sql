@@ -1,1 +1,0 @@
--- Runtime schema is created by SQLAlchemy. Add Alembic migrations before production rollout.

@@ -1,3 +1,0 @@
-strategy: latest-per-topic
-activation: index-new-first-then-retire-old
-examples: [guide_v1.docx, guide_v2.docx, guide_v3.docx, topic/v4/manual.pdf]

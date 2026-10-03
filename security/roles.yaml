@@ -1,3 +1,0 @@
-roles:
-  technician: {chat: true, own_history: true, upload_documents: false, manage_parameters: false, manage_users: false}
-  admin: {chat: true, own_history: true, upload_documents: true, manage_parameters: true, manage_users: true}

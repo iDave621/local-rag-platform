@@ -28,8 +28,7 @@ APP_FILES = (
     'frontend/index.html', 'frontend/vite.config.js', 'frontend/nginx.conf',
     'redis/redis.conf', 'deploy/images.lock.json',
     'deploy/OFFLINE_DEPLOYMENT.md', 'deploy/BACKUP_RESTORE.md',
-    'deploy/SPLIT_DEPLOYMENT.md', 'database/postgres/schema.sql',
-    'security/roles.yaml',
+    'deploy/SPLIT_DEPLOYMENT.md',
 )
 DIRECTORIES = {
     'docs': {'.md', '.svg', '.png'},
@@ -42,9 +41,6 @@ DIRECTORIES = {
     'deploy/compose': {'.yaml', '.yml'},
     'deploy/nginx': {'.conf', '.template'},
     'deploy/postgres': {'.conf'},
-    'llm/config': {'.yaml', '.yml', '.json'},
-    'llm/modelfiles': {'.modelfile'},
-    'knowledge_base/config': {'.yaml', '.yml', '.json'},
 }
 EXCLUDED_DIRS = {
     '.git', '.agents', '.codex', '.aws', '__pycache__', 'node_modules', 'dist',
@@ -159,7 +155,7 @@ def source_files(project: Path) -> list[Path]:
                 if (lowered.startswith(('.env', 'credentials', 'id_ed25519', 'id_rsa'))
                         or lowered.endswith(('.partial', '.next', '.log', '.tmp'))):
                     continue
-                if path.suffix.lower() in extensions or (relative == 'llm/modelfiles' and name == 'Modelfile'):
+                if path.suffix.lower() in extensions:
                     selected.add(safe_regular(path, project))
     return sorted(selected, key=lambda path: path.relative_to(project).as_posix())
 
