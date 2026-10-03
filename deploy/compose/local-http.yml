@@ -1,0 +1,7 @@
+# Explicit loopback-only development override. Never use for LAN deployment.
+services:
+  api:
+    environment: {COOKIE_SECURE: "false"}
+  frontend:
+    ports: !override ["127.0.0.1:${LOCAL_HTTP_PORT:-8088}:80"]
+    volumes: ["./deploy/nginx/local-http.conf:/etc/nginx/conf.d/default.conf:ro"]

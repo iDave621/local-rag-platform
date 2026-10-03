@@ -1,0 +1,4 @@
+FROM qwen3:4b-instruct
+PARAMETER num_ctx 4096
+PARAMETER temperature 0
+SYSTEM You are a local offline technical troubleshooting assistant. Use supplied RAG evidence only for technical claims.

@@ -1,0 +1,173 @@
+name: local-rag-platform
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rag}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0
+  CHROMA_HOST: chroma
+  CHROMA_PORT: 8000
+  CHROMA_SSL: "false"
+  OLLAMA_BASE_URL: http://ollama:11434
+  DATA_ROOT: /data
+  COOKIE_SECURE: "true"
+  ANONYMIZED_TELEMETRY: "false"
+  OTEL_SDK_DISABLED: "true"
+  LANGCHAIN_TRACING_V2: "false"
+  LANGSMITH_TRACING: "false"
+  HF_HUB_OFFLINE: "1"
+  HF_HUB_DISABLE_TELEMETRY: "1"
+  TRANSFORMERS_OFFLINE: "1"
+x-backend: &backend
+  image: local-rag/backend:2.2.0
+  pull_policy: never
+  build: {context: ., dockerfile: backend/Dockerfile}
+  restart: unless-stopped
+  env_file: .env
+  environment: *backend-environment
+  volumes: ["${HOST_DATA_PATH:-./data}:/data"]
+  stop_grace_period: 120s
+  depends_on:
+    dependency-check: {condition: service_completed_successfully}
+  logging: &logging
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+services:
+  postgres:
+    image: local-rag/postgres:2.2.0
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag} -d ${POSTGRES_DB:-rag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+  chroma:
+    image: local-rag/chroma:2.2.0
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /data
+      ANONYMIZED_TELEMETRY: "FALSE"
+      CHROMA_TELEMETRY__ANONYMIZED: "false"
+      OTEL_SDK_DISABLED: "true"
+    volumes: [chroma_data:/data]
+    logging: *logging
+  redis:
+    image: local-rag/redis:2.2.0
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: ["sh", "-c", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    volumes: ["./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro", redis_data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+  ollama:
+    image: local-rag/ollama:2.2.0
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_QUEUE: ${OLLAMA_MAX_QUEUE:-1024}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-4096}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
+      OLLAMA_NO_CLOUD: "1"
+    volumes: ["${OLLAMA_HOST_PATH:-./data/ollama}:/root/.ollama"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+    logging: *logging
+  db-init:
+    <<: *backend
+    restart: "no"
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: ["python", "-m", "app.cli", "init-db"]
+  dependency-check:
+    <<: *backend
+    restart: "no"
+    depends_on:
+      db-init: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      chroma: {condition: service_started}
+      ollama: {condition: service_healthy}
+    command: ["sh", "-c", "for attempt in $$(seq 1 60); do python -m app.cli health --component all && exit 0; sleep 5; done; exit 1"]
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "2", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "health", "--component", "api"]
+      interval: 20s
+      timeout: 20s
+      retries: 6
+      start_period: 120s
+  chat-worker:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      WORKER_QUEUES: high
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "health", "--component", "worker", "--queues", "high"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
+  background-worker:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      WORKER_QUEUES: medium,low
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "health", "--component", "worker", "--queues", "medium,low"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
+  cleanup-worker:
+    <<: *backend
+    command: ["python", "-m", "app.cleanup_worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "health", "--component", "cleanup"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+  sync-worker:
+    <<: *backend
+    command: ["python", "-m", "app.sync_worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "health", "--component", "sync"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+  frontend:
+    image: local-rag/frontend:2.2.0
+    pull_policy: never
+    build: {context: ., dockerfile: frontend/Dockerfile}
+    restart: unless-stopped
+    depends_on:
+      api: {condition: service_healthy}
+    ports: ["${WEB_BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-443}:443", "127.0.0.1:${HTTP_REDIRECT_PORT:-80}:80"]
+    volumes: ["${TLS_CERT_PATH:-./deploy/tls}:/etc/nginx/tls:ro"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+volumes:
+  postgres_data:
+  chroma_data:
+  redis_data:

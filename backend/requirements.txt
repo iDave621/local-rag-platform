@@ -1,0 +1,19 @@
+# Direct dependencies for release 2.2.0. Docker installs the complete transitive lock.
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+sqlalchemy==2.0.53
+psycopg[binary]==3.3.5
+redis==5.3.1
+chromadb==1.5.9
+langchain-core==0.3.86
+langchain-chroma==0.2.6
+langchain-ollama==0.3.10
+langchain-text-splitters==0.3.11
+httpx==0.28.1
+python-multipart==0.0.32
+PyMuPDF==1.28.2
+python-docx==1.2.0
+Pillow==11.3.0
+beautifulsoup4==4.15.0

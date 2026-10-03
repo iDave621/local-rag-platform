@@ -1,0 +1,47 @@
+name: local-rag-cisco-data
+services:
+  postgres:
+    image: local-rag/postgres:2.2.0
+    pull_policy: never
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    entrypoint: ["sh", "-c", "cp /tls/server.crt /var/lib/postgresql/server.crt && cp /tls/server.key /var/lib/postgresql/server.key && chown postgres:postgres /var/lib/postgresql/server.* && chmod 600 /var/lib/postgresql/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key -c hba_file=/etc/postgresql/pg_hba.conf"]
+    ports: ["${DATA_BIND_ADDRESS:?Set DATA_BIND_ADDRESS to the private data-server IP}:5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data, "${DATA_TLS_PATH:-../tls}:/tls:ro", "../postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag} -d ${POSTGRES_DB:-rag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  chroma:
+    image: local-rag/chroma:2.2.0
+    pull_policy: never
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /data
+      ANONYMIZED_TELEMETRY: "FALSE"
+      CHROMA_TELEMETRY__ANONYMIZED: "false"
+      OTEL_SDK_DISABLED: "true"
+    volumes: [chroma_data:/data]
+    restart: unless-stopped
+  chroma-gateway:
+    image: local-rag/gateway:2.2.0
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      CHROMA_AUTH_TOKEN: ${CHROMA_AUTH_TOKEN:?Set the same long alphanumeric CHROMA_AUTH_TOKEN on both servers}
+      NGINX_ENVSUBST_FILTER: ^CHROMA_AUTH_TOKEN$
+    depends_on: [chroma]
+    ports: ["${DATA_BIND_ADDRESS:?Set DATA_BIND_ADDRESS to the private data-server IP}:${REMOTE_CHROMA_PORT:-8443}:443"]
+    volumes: ["../nginx/chroma.conf.template:/etc/nginx/templates/default.conf.template:ro", "${DATA_TLS_PATH:-../tls}:/etc/nginx/tls:ro"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "-q", "-O", "-", "https://127.0.0.1/gateway-health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres_data:
+  chroma_data:

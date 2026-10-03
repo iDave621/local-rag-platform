@@ -1,0 +1,10 @@
+profile: cpu-balanced
+chat_model: qwen3:4b-instruct
+embedding_model: embeddinggemma
+vision_model: qwen2.5vl:3b
+parallel_generations: 1
+context_length: 4096
+queues:
+  high: chat
+  medium: admin-ingestion
+  low: sync-and-vision

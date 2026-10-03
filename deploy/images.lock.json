@@ -1,0 +1,11 @@
+{
+  "release": "2.2.0",
+  "platform": "linux/amd64",
+  "images": {
+    "local-rag/postgres:2.2.0": "postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+    "local-rag/redis:2.2.0": "redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+    "local-rag/chroma:2.2.0": "chromadb/chroma@sha256:1e0b73a187a28757c572acba508c46f48c9e8b0acaf5c20e6d95cdedce1acdf6",
+    "local-rag/ollama:2.2.0": "ollama/ollama@sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba",
+    "local-rag/gateway:2.2.0": "nginx@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236"
+  }
+}

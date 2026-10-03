@@ -1,0 +1,9 @@
+# Application/model/data services have no outbound Internet/LAN connection.
+# A separate frontend bridge preserves published HTTPS on Docker Desktop as well.
+services:
+  frontend:
+    networks: [default, ingress]
+networks:
+  default:
+    internal: true
+  ingress: {}

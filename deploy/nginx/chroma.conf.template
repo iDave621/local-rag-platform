@@ -1,0 +1,22 @@
+map $http_x_chroma_token $chroma_authorized {
+    default 0;
+    "${CHROMA_AUTH_TOKEN}" 1;
+}
+server {
+    listen 443 ssl;
+    server_name _;
+    ssl_certificate /etc/nginx/tls/server.crt;
+    ssl_certificate_key /etc/nginx/tls/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 100m;
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    resolver_timeout 5s;
+    set $chroma_upstream chroma:8000;
+    location = /gateway-health { return 200 "ok\n"; }
+    location / {
+        if ($chroma_authorized = 0) { return 401; }
+        proxy_pass http://$chroma_upstream$request_uri;
+        proxy_read_timeout 300s;
+        proxy_set_header X-Chroma-Token "";
+    }
+}
